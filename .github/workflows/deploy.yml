@@ -1,0 +1,54 @@
+
+name: Deploy to AWS EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install Dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run Tests
+        run: pytest test_app.py
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Deploy to EC2
+        env:
+          PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          HOSTNAME: ${{ secrets.EC2_PUBLIC_IP }}
+          USER_NAME: ubuntu
+        run: |
+          # 1. Save the private key to a file and fix permissions
+          echo "$PRIVATE_KEY" > private_key && chmod 600 private_key
+          
+          # 2. Tell GitHub to trust your AWS server
+          mkdir -p ~/.ssh
+          echo "StrictHostKeyChecking no" >> ~/.ssh/config
+          
+          # 3. Connect to AWS and install Python tools
+          ssh -i private_key ${USER_NAME}@${HOSTNAME} "sudo apt-get update -y && sudo apt-get install python3-pip python3-venv -y"
+          
+          # 4. Copy all your files from GitHub to the AWS server
+          scp -i private_key -r ./* ${USER_NAME}@${HOSTNAME}:/home/ubuntu/
+          
+          # 5. Connect again to start the web application
+          ssh -i private_key ${USER_NAME}@${HOSTNAME} "cd /home/ubuntu && python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt && nohup python app.py > output.log 2>&1 &"
