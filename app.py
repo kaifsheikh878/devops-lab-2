@@ -7,7 +7,7 @@ app = Flask(__name__)
 # Define what happens when someone visits the main page ('/')
 @app.route('/')
 def hello():
-    return "Hello from the DevOps Lab!"
+    return "Goodbye from the DevOps Lab!"
 
 # Run the app on port 8080 when executed
 if __name__ == '__main__':
